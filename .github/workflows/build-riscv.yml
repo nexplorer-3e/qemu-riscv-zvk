@@ -1,0 +1,38 @@
+name: Build QEMU (target riscv)
+on:
+  push:
+    branches: '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Checkout OpenSBI
+      run: |
+        git submodule update --init --recursive roms/opensbi 
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential zlib1g-dev
+        sudo apt-get install -y python3 ninja-build meson
+        sudo apt-get install -y libfdt-dev
+        sudo apt-get install -y libpixman-1-dev
+        sudo apt-get install -y xz-utils libzstd-dev nettle-dev
+        sudo apt-get install -y libslirp-dev gcc-riscv64-linux-gnu
+    - name: Build QEMU
+      run: |
+        mkdir build && cd build
+        ../configure --target-list=riscv64-softmmu,riscv64-linux-user --prefix=$PWD/usr --static
+        make -j${nproc} && make install
+    - name: Create tarball
+      id: tarcJ
+      run: |
+        tar cJvf qemu-riscv.tar.xz -C build/ usr/
+        echo ::set-output name=VERSION::$(cat VERSION)
+    - name: Upload tarball
+      uses: actions/upload-artifact@v3
+      with:
+        path: qemu-riscv.tar.xz
+        name: qemu-static-${{ steps.tarcJ.outputs.VERSION }}
